@@ -3,10 +3,11 @@ import './App.css';
 import {Map, TileLayer, Marker, Popup} from 'react-leaflet';
 import {Component} from 'react';
 import L from 'leaflet';
+import Joi  from '@hapi/joi';
 import { Card, CardText,
   CardTitle,Button } from 'reactstrap';
 
-import { Form, FormGroup, Label, Input, FormText } from 'reactstrap';
+import { Form, FormGroup, Label, Input } from 'reactstrap';
 
 
 var myIcon = L.icon({
@@ -16,6 +17,13 @@ var myIcon = L.icon({
     popupAnchor: [0, -41]
 });
 
+const schema = Joi.object().keys({
+
+  username: Joi.string().alphanum().min(1).max(100).required(),
+  message: Joi.string().min(3).max(500).required()
+
+});
+const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/firstPage/routes/messages' : 'productionUrl';
 class App extends Component<{},State> {
   state = {
     location: {
@@ -23,7 +31,7 @@ class App extends Component<{},State> {
       lng: 31.340002
 
     },
-    haveUsersLocation: false,
+    haveUsersLocation: true,
     zoom: 19,
     userMessage: {
       name: '',
@@ -57,10 +65,40 @@ class App extends Component<{},State> {
 
     });
   }
+  formValidation = () => {
+    const userMessage ={
+      name: this.state.userMessage.name,
+      message: this.state.userMessage.message
+
+    };
+
+   const result=   Joi.validate(userMessage, schema );
+
+   return result.error && !this.state.haveUsersLocation ? false : true ;
+
+  }
   //-------------------------------------------------------------------
   formSubmitted = (event) => {
     event.preventDefault(); // preventDefault btmn3 msln el defult 2no y7sal
     console.log(this.state.userMessage);
+
+   if (this.formValidation()){
+     fetch(API_URL, {
+       method: 'POST',
+       headers: {
+          'content-type': 'application/json',
+       },
+       body: JSON.stringify({
+         name: this.state.userMessage.name,
+         message: this.state.userMessage.message,
+        latitude: this.state.location.lat,
+        longitude: this.state.location.lng
+       })
+     }).then(res => {
+       res.json();
+     });
+
+   }
   }
 
   valueChanged = (event) => {
@@ -83,9 +121,9 @@ class App extends Component<{},State> {
 
     return (
       <div className = "map">
-                <Map className ="map" center={position} zoom={this.state.zoom}>
+                <Map className ="map" center={position} zoom={this.state.zoom} >
                    <TileLayer
-                     attribution='&amp;copy <a href="http://osm.org/copyright">Meits</a> Technology'
+                     attribution='&amp;copy <a >Meits</a> Technology'
                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                    />
                    {
@@ -111,7 +149,7 @@ class App extends Component<{},State> {
                         <Label for="message">Message</Label>
                         <Input onChange={this.valueChanged} type="text" name="message" id="message" placeholder="Enter A message! " />
                        </FormGroup>
-                       <Button type = "submit" color="info" disabled={!this.state.haveUsersLocation}>send</Button>
+                       <Button type = "submit" color="info" disabled={!this.formValidation()}>send</Button>
                        </Card>
                 </Form>
        </div>
